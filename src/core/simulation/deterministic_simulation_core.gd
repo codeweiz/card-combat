@@ -76,23 +76,66 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 		return actions
 	if not _state.next_sequence_by_player.has(player_id):
 		return actions
+	var sequence_id: int = _state.next_sequence_by_player[player_id]
+	var preview_prefix := String(player_id)
 	if _state.response_window.is_open():
 		if _state.response_window.has_priority(player_id):
 			var pass_command := ActionCommand.new()
-			pass_command.command_id = &"preview_pass_response"
+			pass_command.command_id = StringName("preview_pass_response_%s" % preview_prefix)
 			pass_command.actor_player_id = player_id
 			pass_command.command_type = &"pass_response"
-			pass_command.sequence_id = _state.next_sequence_by_player[player_id]
+			pass_command.sequence_id = sequence_id
 			pass_command.expected_state_hash = _state.get_state_hash()
 			actions.append(pass_command)
+			for card_id: StringName in _card_database.get_card_ids():
+				var definition: CardDefinition = _card_database.get_card_definition(card_id)
+				if definition == null:
+					continue
+				if definition.card_type != CardDefinition.TYPE_RESPONSE or definition.speed != CardDefinition.SPEED_RESPONSE:
+					continue
+				var response_command := ActionCommand.new()
+				response_command.command_id = StringName("preview_play_response_%s_%s" % [card_id, preview_prefix])
+				response_command.actor_player_id = player_id
+				response_command.command_type = &"play_response"
+				response_command.card_id = card_id
+				response_command.sequence_id = sequence_id
+				response_command.expected_state_hash = _state.get_state_hash()
+				actions.append(response_command)
 		return actions
 	var command := ActionCommand.new()
-	command.command_id = &"preview_noop"
+	command.command_id = StringName("preview_noop_%s" % preview_prefix)
 	command.actor_player_id = player_id
 	command.command_type = &"noop"
-	command.sequence_id = _state.next_sequence_by_player[player_id]
+	command.sequence_id = sequence_id
 	command.expected_state_hash = _state.get_state_hash()
 	actions.append(command)
+
+	for card_id: StringName in _card_database.get_card_ids():
+		var definition: CardDefinition = _card_database.get_card_definition(card_id)
+		if definition == null:
+			continue
+		if definition.card_type == CardDefinition.TYPE_UNIT and definition.speed == CardDefinition.SPEED_MAIN:
+			for lane_id: StringName in _state.board.lane_order:
+				if _state.board.can_place_unit(player_id, lane_id):
+					var play_unit := ActionCommand.new()
+					play_unit.command_id = StringName("preview_play_unit_%s_%s" % [card_id, lane_id])
+					play_unit.actor_player_id = player_id
+					play_unit.command_type = &"play_unit"
+					play_unit.card_id = card_id
+					play_unit.target_lane = lane_id
+					play_unit.sequence_id = sequence_id
+					play_unit.expected_state_hash = _state.get_state_hash()
+					actions.append(play_unit)
+			continue
+		if definition.card_type == CardDefinition.TYPE_SPELL and definition.speed == CardDefinition.SPEED_MAIN:
+			var play_spell := ActionCommand.new()
+			play_spell.command_id = StringName("preview_play_spell_%s" % card_id)
+			play_spell.actor_player_id = player_id
+			play_spell.command_type = &"play_spell"
+			play_spell.card_id = card_id
+			play_spell.sequence_id = sequence_id
+			play_spell.expected_state_hash = _state.get_state_hash()
+			actions.append(play_spell)
 	return actions
 
 
