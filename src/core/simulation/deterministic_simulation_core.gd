@@ -9,8 +9,11 @@ var _card_database: CardDatabase
 var _effect_resolver := CardEffectResolver.new()
 
 const COMMAND_END_TURN: StringName = &"end_turn"
+const COMMAND_ATTACK_UNIT: StringName = &"attack_unit"
 const END_REASON_LIFE_ZERO: StringName = &"life_zero"
 const MAIN_ACTIONS_PER_TURN_MVP: int = 1
+const PHASE_MAIN: StringName = &"main"
+const PHASE_ATTACK: StringName = &"attack"
 
 
 ## Initializes a deterministic match from setup and validated card data.
@@ -57,11 +60,13 @@ func submit_command(command: ActionCommand) -> SimulationResult:
 			return _submit_play_response(command)
 		return SimulationResult.rejected_result(&"response_window_open", "Only response or pass commands are legal while a response window is open", _state.get_state_hash())
 	if command.command_type == &"noop":
-		if command.actor_player_id != _state.active_player_id:
-			return SimulationResult.rejected_result(&"wrong_player_turn", "Actor is not the active player", _state.get_state_hash())
+		if _state.turn_phase != PHASE_MAIN:
+			return SimulationResult.rejected_result(&"noop_invalid_phase", "noop is only valid in main phase", _state.get_state_hash())
 		return _accept_command(command, ["noop_accepted"])
 	if command.command_type == COMMAND_END_TURN:
 		return _submit_end_turn(command)
+	if command.command_type == COMMAND_ATTACK_UNIT:
+		return _submit_attack_unit(command)
 	if command.command_type == &"play_spell":
 		return _submit_play_spell(command)
 	if command.command_type == &"play_unit":
@@ -114,6 +119,24 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 			return actions
 	if player_id != _state.active_player_id:
 		return actions
+	if _state.turn_phase == PHASE_ATTACK:
+		if _state.remaining_attack_actions_for_active_player > 0:
+			for lane_id: StringName in _state.board.lane_order:
+				var lane: LaneState = _state.board.get_lane(lane_id)
+				if lane == null:
+					continue
+				var attacker: UnitInstance = lane.get_unit_for_player(player_id)
+				if attacker == null or not attacker.ready:
+					continue
+				var attack_command := ActionCommand.new()
+				attack_command.command_id = StringName("preview_attack_unit_%s_%s" % [attacker.unit_instance_id, lane_id])
+				attack_command.actor_player_id = player_id
+				attack_command.command_type = COMMAND_ATTACK_UNIT
+				attack_command.target_lane = lane_id
+				attack_command.target_id = attacker.unit_instance_id
+				attack_command.sequence_id = sequence_id
+				attack_command.expected_state_hash = _state.get_state_hash()
+				actions.append(attack_command)
 	var end_turn_command := ActionCommand.new()
 	end_turn_command.command_id = StringName("preview_end_turn_%s" % preview_prefix)
 	end_turn_command.actor_player_id = player_id
@@ -122,6 +145,8 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 	end_turn_command.expected_state_hash = _state.get_state_hash()
 	actions.append(end_turn_command)
 	if _state.remaining_main_actions_for_active_player <= 0:
+		return actions
+	if _state.turn_phase != PHASE_MAIN:
 		return actions
 	var command := ActionCommand.new()
 	command.command_id = StringName("preview_noop_%s" % preview_prefix)
@@ -161,6 +186,8 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 
 
 func _submit_play_unit(command: ActionCommand) -> SimulationResult:
+	if _state.turn_phase != PHASE_MAIN:
+		return SimulationResult.rejected_result(&"main_phase_only", "play_unit is only valid in main phase", _state.get_state_hash())
 	if command.card_id == &"":
 		return SimulationResult.rejected_result(&"missing_card_id", "play_unit requires card_id", _state.get_state_hash())
 	if command.target_lane == &"":
@@ -237,6 +264,8 @@ func _resolve_pending_original_after_response() -> Array[String]:
 		events.append_array(_resolve_original_play_unit(original))
 	elif original.command_type == &"play_spell":
 		events.append_array(_resolve_original_play_spell(original))
+	elif original.command_type == COMMAND_ATTACK_UNIT:
+		events.append_array(_resolve_original_attack(original))
 	else:
 		original.fizzled = true
 		original.outcome_reason = &"unsupported_original_command"
@@ -261,7 +290,7 @@ func _resolve_original_play_unit(original: StackItem) -> Array[String]:
 		original.outcome_reason = &"lane_slot_occupied"
 		events.append("original_fizzled:%s:%s" % [original.command_id, original.outcome_reason])
 		return events
-	var unit: UnitInstance = _state.board.place_unit(original.actor_player_id, original.target_lane, definition)
+	var unit: UnitInstance = _state.board.place_unit(original.actor_player_id, original.target_lane, definition, _state.turn_index)
 	if unit == null:
 		original.fizzled = true
 		original.outcome_reason = &"unit_placement_failed"
@@ -273,7 +302,78 @@ func _resolve_original_play_unit(original: StackItem) -> Array[String]:
 	return events
 
 
+func _submit_attack_unit(command: ActionCommand) -> SimulationResult:
+	if _state.turn_phase != PHASE_ATTACK:
+		return SimulationResult.rejected_result(&"attack_phase_only", "attack_unit is only valid in attack phase", _state.get_state_hash())
+	if command.actor_player_id != _state.active_player_id:
+		return SimulationResult.rejected_result(&"wrong_player_turn", "Actor is not the active player", _state.get_state_hash())
+	if command.target_lane == &"":
+		return SimulationResult.rejected_result(&"missing_target_lane", "attack_unit requires target_lane", _state.get_state_hash())
+	var lane: LaneState = _state.board.get_lane(command.target_lane)
+	if lane == null:
+		return SimulationResult.rejected_result(&"invalid_target_lane", "Unknown lane %s" % command.target_lane, _state.get_state_hash())
+	var attacker: UnitInstance = lane.get_unit_for_player(command.actor_player_id)
+	if attacker == null:
+		return SimulationResult.rejected_result(&"no_attacker", "No active player's unit in lane %s" % command.target_lane, _state.get_state_hash())
+	if not attacker.ready:
+		return SimulationResult.rejected_result(&"attacker_not_ready", "Selected unit is not ready to attack", _state.get_state_hash())
+	if not _consume_attack_action():
+		return SimulationResult.rejected_result(&"attack_actions_exhausted", "No attack actions remain this turn", _state.get_state_hash())
+	attacker.ready = false
+	var defender_id := _get_opponent_player_id(command.actor_player_id)
+	if defender_id == &"":
+		return SimulationResult.rejected_result(&"missing_defender", "attack_unit requires an opposing defender", _state.get_state_hash())
+	_state.response_window.open_for_original(_state.next_response_window_index, command, defender_id)
+	_state.next_response_window_index += 1
+	return _accept_command(command, ["attack_declared:%s:%s" % [attacker.unit_instance_id, command.target_lane]])
+
+
+func _resolve_original_attack(original: StackItem) -> Array[String]:
+	var events: Array[String] = []
+	if original.target_lane == &"":
+		original.fizzled = true
+		original.outcome_reason = &"missing_target_lane"
+		events.append("original_fizzled:%s:%s" % [original.command_id, original.outcome_reason])
+		return events
+	var lane: LaneState = _state.board.get_lane(original.target_lane)
+	if lane == null:
+		original.fizzled = true
+		original.outcome_reason = &"invalid_target_lane"
+		events.append("original_fizzled:%s:%s" % [original.command_id, original.outcome_reason])
+		return events
+	var attacker: UnitInstance = lane.get_unit_for_player(original.actor_player_id)
+	if attacker == null:
+		original.fizzled = true
+		original.outcome_reason = &"attacker_missing"
+		events.append("original_fizzled:%s:%s" % [original.command_id, original.outcome_reason])
+		return events
+	var defender_id: StringName = _get_opponent_player_id(original.actor_player_id)
+	if defender_id == &"":
+		original.fizzled = true
+		original.outcome_reason = &"missing_defender"
+		events.append("original_fizzled:%s:%s" % [original.command_id, original.outcome_reason])
+		return events
+	var defender: UnitInstance = lane.get_unit_for_player(defender_id)
+	if defender != null:
+		defender.health -= attacker.attack
+		events.append("unit_attacked_unit:%s:%s:%d" % [attacker.unit_instance_id, defender.unit_instance_id, attacker.attack])
+		if defender.health <= 0:
+			var removed_defender: UnitInstance = _state.board.remove_unit(defender.unit_instance_id)
+			if removed_defender != null:
+				events.append("unit_destroyed:%s" % removed_defender.unit_instance_id)
+	else:
+		var old_life: int = int(_state.board.player_life_by_id.get(defender_id, 0))
+		var damage: int = attacker.attack
+		_state.board.player_life_by_id[defender_id] = max(0, old_life - damage)
+		events.append("player_attacked:%s:%d" % [defender_id, damage])
+	original.resolved = true
+	original.outcome_reason = &"resolved"
+	return events
+
+
 func _submit_play_spell(command: ActionCommand) -> SimulationResult:
+	if _state.turn_phase != PHASE_MAIN:
+		return SimulationResult.rejected_result(&"main_phase_only", "play_spell is only valid in main phase", _state.get_state_hash())
 	if command.card_id == &"":
 		return SimulationResult.rejected_result(&"missing_card_id", "play_spell requires card_id", _state.get_state_hash())
 	if command.actor_player_id != _state.active_player_id:
@@ -313,14 +413,26 @@ func _resolve_original_play_spell(original: StackItem) -> Array[String]:
 func _submit_end_turn(command: ActionCommand) -> SimulationResult:
 	if command.actor_player_id != _state.active_player_id:
 		return SimulationResult.rejected_result(&"wrong_player_turn", "Actor is not the active player", _state.get_state_hash())
+	var events: Array[String] = []
+	if _state.turn_phase == PHASE_MAIN:
+		_state.turn_phase = PHASE_ATTACK
+		_state.remaining_main_actions_for_active_player = 0
+		_state.board.set_units_ready_for_player(_state.active_player_id, true, _state.turn_index)
+		_state.remaining_attack_actions_for_active_player = _state.board.count_ready_units_for_player(_state.active_player_id)
+		events.append("attack_phase_started:%s" % _state.active_player_id)
+		return _accept_command(command, events)
+	if _state.turn_phase != PHASE_ATTACK:
+		return SimulationResult.rejected_result(&"invalid_turn_phase", "Cannot end turn in unknown phase %s" % _state.turn_phase, _state.get_state_hash())
 	var next_player: StringName = _get_opponent_player_id(_state.active_player_id)
 	if next_player == &"":
 		return SimulationResult.rejected_result(&"missing_defender", "end_turn requires an opposing player", _state.get_state_hash())
 	var previous_player: StringName = _state.active_player_id
 	_state.active_player_id = next_player
+	_state.turn_phase = PHASE_MAIN
 	_state.remaining_main_actions_for_active_player = MAIN_ACTIONS_PER_TURN_MVP
+	_state.remaining_attack_actions_for_active_player = 0
 	_state.turn_index += 1
-	var events: Array[String] = ["turn_ended:%s:%s" % [previous_player, _state.active_player_id]]
+	events = ["turn_ended:%s:%s" % [previous_player, _state.active_player_id]]
 	events.append_array(_check_match_completion())
 	return _accept_command(command, events)
 
@@ -335,6 +447,13 @@ func _consume_main_action() -> bool:
 	if _state.remaining_main_actions_for_active_player <= 0:
 		return false
 	_state.remaining_main_actions_for_active_player -= 1
+	return true
+
+
+func _consume_attack_action() -> bool:
+	if _state.remaining_attack_actions_for_active_player <= 0:
+		return false
+	_state.remaining_attack_actions_for_active_player -= 1
 	return true
 
 

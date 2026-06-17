@@ -48,7 +48,7 @@ func can_place_unit(owner_player_id: StringName, lane_id: StringName) -> bool:
 
 
 ## Creates and places a unit from a definition.
-func place_unit(owner_player_id: StringName, lane_id: StringName, definition: CardDefinition) -> UnitInstance:
+func place_unit(owner_player_id: StringName, lane_id: StringName, definition: CardDefinition, played_turn: int = 0) -> UnitInstance:
 	if definition == null:
 		return null
 	if definition.card_type != CardDefinition.TYPE_UNIT:
@@ -61,6 +61,7 @@ func place_unit(owner_player_id: StringName, lane_id: StringName, definition: Ca
 	var lane: LaneState = lanes[lane_id]
 	if not lane.add_unit(unit):
 		return null
+	unit.played_turn = played_turn
 	return unit
 
 
@@ -132,6 +133,48 @@ func move_unit(instance_id: StringName, target_lane: StringName) -> bool:
 		from_lane.add_unit(unit_to_move)
 		return false
 	return true
+
+
+## Sets all units for this owner to the requested ready flag.
+func set_units_ready_for_player(owner_id: StringName, ready_flag: bool, minimum_turn: int = -1) -> void:
+	for lane_id: StringName in lane_order:
+		var lane: LaneState = lanes.get(lane_id, null)
+		if lane == null:
+			continue
+		var unit: UnitInstance = lane.get_unit_for_player(owner_id)
+		if unit != null:
+			if not ready_flag:
+				unit.ready = false
+			elif minimum_turn < 0:
+				unit.ready = true
+			else:
+				unit.ready = unit.played_turn < minimum_turn
+
+
+## Counts ready units for this player across all lanes.
+func count_ready_units_for_player(owner_id: StringName) -> int:
+	var ready_count: int = 0
+	for lane_id: StringName in lane_order:
+		var lane: LaneState = lanes.get(lane_id, null)
+		if lane == null:
+			continue
+		var unit: UnitInstance = lane.get_unit_for_player(owner_id)
+		if unit != null and unit.ready:
+			ready_count += 1
+	return ready_count
+
+
+## Counts all units for this player across all lanes.
+func count_units_for_player(owner_id: StringName) -> int:
+	var unit_count: int = 0
+	for lane_id: StringName in lane_order:
+		var lane: LaneState = lanes.get(lane_id, null)
+		if lane == null:
+			continue
+		var unit: UnitInstance = lane.get_unit_for_player(owner_id)
+		if unit != null:
+			unit_count += 1
+	return unit_count
 
 
 ## Returns deterministic board data.

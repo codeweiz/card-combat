@@ -22,6 +22,8 @@ var format_id: StringName = &"mvp_local"
 var board := BoardState.new()
 var response_window := ResponseWindowState.new()
 var next_response_window_index: int = 0
+var turn_phase: StringName = &"main"
+var remaining_attack_actions_for_active_player: int = 0
 
 
 ## Initializes state from a setup payload.
@@ -43,6 +45,8 @@ func initialize_from_setup(setup: MatchSetup) -> void:
 	winner_player_id = &""
 	loser_player_id = &""
 	end_reason = &""
+	turn_phase = &"main"
+	remaining_attack_actions_for_active_player = 0
 	for player_id: StringName in player_ids:
 		next_sequence_by_player[player_id] = 0
 	board.initialize(player_ids)
@@ -80,8 +84,10 @@ func to_canonical_data() -> Dictionary:
 		"response_window": response_window.to_canonical_data(),
 		"rule_set_version": rule_set_version,
 		"next_response_window_index": next_response_window_index,
+		"remaining_attack_actions_for_active_player": remaining_attack_actions_for_active_player,
 		"turn_index": turn_index,
 		"winner_player_id": winner_player_id,
+		"turn_phase": turn_phase,
 	}
 
 
