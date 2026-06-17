@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: ""
+last_updated: "2026-06-17"
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -43,7 +43,72 @@ last_updated: ""
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: match_state_core
+    status: active
+    owner_system: deterministic-simulation-core
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    interface: "DeterministicSimulationCore.get_state_snapshot() deep-copied canonical Dictionary; mutations only through submit_command(command)"
+    write_access: deterministic-simulation-core-only
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/deterministic-simulation-core.md
+    added: 2026-06-17
+    revised: ""
+
+  - state: card_definitions
+    status: active
+    owner_system: card-data-model
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    interface: "CardDatabase.get_card_definition(card_id: StringName) -> CardDefinition"
+    write_access: content-load-and-validation-only
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - design/gdd/card-data-model.md
+    added: 2026-06-17
+    revised: ""
+
+  - state: lane_board_state
+    status: active
+    owner_system: zone-lane-board-system
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    interface: "MatchState.board canonical snapshot; BoardState mutation APIs invoked only by DeterministicSimulationCore during accepted transitions"
+    write_access: deterministic-simulation-core-through-board-api-only
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - state: response_window_state
+    status: active
+    owner_system: stack-response-system
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    interface: "MatchState.response_window canonical snapshot; ResponseWindowState opened, advanced, and cleared only by DeterministicSimulationCore"
+    write_access: deterministic-simulation-core-through-response-window-api-only
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - state: runtime_unit_instances
+    status: active
+    owner_system: zone-lane-board-system
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    interface: "UnitInstance records stored inside LaneState; created from CardDefinition through BoardState.place_unit()"
+    write_access: zone-lane-board-system-through-core-transition-only
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
@@ -71,7 +136,88 @@ state_ownership: []
 #
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
-interfaces: []
+interfaces:
+  - contract: simulation_command_submission
+    status: active
+    pattern: direct_call
+    producer: local-match-flow
+    consumers:
+      - deterministic-simulation-core
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    method_signature: "DeterministicSimulationCore.submit_command(command: ActionCommand) -> SimulationResult"
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - design/gdd/deterministic-simulation-core.md
+    added: 2026-06-17
+    revised: ""
+
+  - contract: card_definition_lookup
+    status: active
+    pattern: direct_call
+    producer: card-data-model
+    consumers:
+      - deterministic-simulation-core
+      - card-effect-resolution-system
+      - deck-construction-validation
+      - match-board-ui-input
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    method_signature: "CardDatabase.get_card_definition(card_id: StringName) -> CardDefinition"
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - design/gdd/card-data-model.md
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - contract: card_effect_resolution
+    status: active
+    pattern: direct_call
+    producer: deterministic-simulation-core
+    consumers:
+      - card-effect-resolution-system
+    adr: docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+    method_signature: "CardEffectResolver.resolve_card_effects(definition: CardDefinition, state: MatchState, source_item: StackItem) -> Array[String]"
+    referenced_by:
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/stack-response-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - contract: lane_board_mutation
+    status: active
+    pattern: direct_call
+    producer: zone-lane-board-system
+    consumers:
+      - deterministic-simulation-core
+      - card-effect-resolution-system
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    method_signature: "BoardState.can_place_unit(owner_player_id: StringName, lane_id: StringName) -> bool; BoardState.place_unit(owner_player_id: StringName, lane_id: StringName, definition: CardDefinition) -> UnitInstance"
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - contract: response_window_state_transition
+    status: active
+    pattern: direct_call
+    producer: stack-response-system
+    consumers:
+      - deterministic-simulation-core
+      - card-effect-resolution-system
+      - action-log-replay-system
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    method_signature: "ResponseWindowState.open_for_original(next_window_index: int, original_command: ActionCommand, defender_id: StringName) -> void; ResponseWindowState.can_accept_response(player_id: StringName) -> bool; ResponseWindowState.clear() -> void; StackItem.from_command(kind: StringName, command: ActionCommand) -> StackItem"
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
@@ -100,7 +246,61 @@ interfaces: []
 # Register a budget when an ADR explicitly claims a frame time allocation.
 # The registry lets /architecture-review verify the total doesn't exceed the target.
 
-performance_budgets: []
+performance_budgets:
+  - system: deterministic-simulation-core
+    status: active
+    budget_ms: 100
+    scope: "simple command validation plus pure resolution before presentation animation"
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - design/gdd/deterministic-simulation-core.md
+    added: 2026-06-17
+    revised: ""
+
+  - system: card-data-model
+    status: active
+    budget_ms: 5
+    scope: "fetch card definition by id in local runtime"
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - design/gdd/card-data-model.md
+    added: 2026-06-17
+    revised: ""
+
+  - system: card-effect-resolution-system
+    status: active
+    budget_ms: 100
+    scope: "full MVP effect batch resolution before presentation animation"
+    adr: docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+    referenced_by:
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/card-effect-resolution-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - system: zone-lane-board-system
+    status: active
+    budget_ms: 100
+    scope: "legal lane query, unit placement, and simple board mutation before presentation animation"
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/zone-lane-board-system.md
+    added: 2026-06-17
+    revised: ""
+
+  - system: stack-response-system
+    status: active
+    budget_ms: 100
+    scope: "open response window, accept pass/response command, resolve response ordering, and close window"
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/stack-response-system.md
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
@@ -131,7 +331,45 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: mvp_rules_core_object_model
+    status: active
+    api: "GDScript RefCounted services for simulation; Resource classes for card definitions"
+    not: "Scene-tree Nodes or Autoload singletons as authoritative match state"
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    reason: "Scene-independent rules are easier to replay, hash, test, and wrap with future server authority."
+    referenced_by:
+      - docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    added: 2026-06-17
+    revised: ""
+
+  - purpose: mvp_card_effect_model
+    status: active
+    api: "CardEffectResolver RefCounted service with typed EffectParams Resource subclasses"
+    not: "Executable card scripts, scene-tree effect nodes, or raw dictionary params as production effect behavior"
+    adr: docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+    reason: "Typed effect schemas make card behavior deterministic, testable, and validateable before match start."
+    referenced_by:
+      - docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/card-data-model.md
+    added: 2026-06-17
+    revised: ""
+
+  - purpose: mvp_board_and_stack_state_model
+    status: active
+    api: "RefCounted BoardState, LaneState, UnitInstance, ResponseWindowState, and StackItem objects stored under MatchState with canonical data serialization"
+    not: "Scene-tree lane nodes, UI-owned board state, or event-only board reconstruction for local MVP validation"
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    reason: "Small typed state objects preserve invariants while staying hashable, headless-testable, and compatible with future replay."
+    referenced_by:
+      - docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/stack-response-system.md
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
@@ -157,7 +395,62 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: scene_tree_coupled_simulation
+    status: active
+    description: "Core match state must not be owned by Node scenes or mutated directly by UI nodes."
+    why: "Scene ownership makes deterministic replay, headless tests, and future server authority fragile."
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    added: 2026-06-17
+
+  - pattern: autoload_singleton_match_state
+    status: active
+    description: "The authoritative match state must not live in a globally accessed Autoload singleton."
+    why: "Hidden global access makes state ownership and isolated tests unreliable."
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    added: 2026-06-17
+
+  - pattern: wall_clock_or_frame_delta_in_core_simulation
+    status: active
+    description: "Core match resolution must not depend on wall-clock time, frame delta, or _process callbacks."
+    why: "Replay must depend only on match setup and ordered commands."
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    added: 2026-06-17
+
+  - pattern: prototype_imports_in_production_source
+    status: active
+    description: "Production source must not import or refactor code/data directly from prototypes/."
+    why: "Prototype shortcuts are intentionally relaxed and not production-safe."
+    adr: docs/architecture/adr-0001-mvp-deterministic-card-simulation.md
+    added: 2026-06-17
+
+  - pattern: executable_card_effect_scripts
+    status: active
+    description: "Card definitions must not embed executable script text, script paths, or callable behavior as production card effects."
+    why: "Executable card behavior is difficult to validate, replay, and wrap with future server authority."
+    adr: docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+    added: 2026-06-17
+
+  - pattern: raw_untyped_effect_params
+    status: active
+    description: "Production card effects must not use raw untyped dictionaries as their runtime parameter schema."
+    why: "Typed EffectParams resources prevent typo-driven behavior and support deterministic validation."
+    adr: docs/architecture/adr-0002-mvp-card-effect-resolution-architecture.md
+    added: 2026-06-17
+
+  - pattern: ui_direct_board_or_stack_mutation
+    status: active
+    description: "UI, animation, and network adapters must not directly write BoardState, LaneState, UnitInstance, ResponseWindowState, or StackItem fields."
+    why: "Direct writes bypass command validation, response ordering, canonical hashes, and future replay diagnostics."
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    added: 2026-06-17
+
+  - pattern: unserialized_transient_stack_state
+    status: active
+    description: "Pending original actions, response items, cancel/fizzle flags, and outcome reasons must not exist only as non-canonical transient UI or local variables."
+    why: "Replay and desync diagnostics need deterministic access to stack outcome state."
+    adr: docs/architecture/adr-0003-mvp-lane-board-and-response-window-state.md
+    added: 2026-06-17
 
 # Example:
 #

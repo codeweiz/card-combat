@@ -37,7 +37,7 @@
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
 version: 1
-last_updated: ""
+last_updated: "2026-06-17"
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, characters, factions, bosses.
@@ -106,7 +106,1150 @@ items: []
 #   output_range[min, max], added
 # Optional: expression (the actual formula), notes
 
-formulas: []
+formulas:
+  - name: canonical_state_hash
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+    variables:
+      - match_state_core
+      - canonical_serialize
+      - stable_hash
+    output_range:
+      min: "implementation-defined"
+      max: "implementation-defined"
+    expression: "stable_hash(canonical_serialize(match_state_core))"
+    notes: "Identical canonical match state must produce identical state hash on every supported platform."
+    added: 2026-06-17
+    revised: ""
+
+  - name: replay_matches_expected
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - final_hash
+      - expected_final_hash
+      - event_count
+      - expected_event_count
+      - mismatch_count
+    output_range:
+      min: false
+      max: true
+    expression: "(final_hash == expected_final_hash) and (event_count == expected_event_count) and (mismatch_count == 0)"
+    notes: "Replay verification succeeds only when final hash, event count, and mismatch count all agree."
+    added: 2026-06-17
+    revised: ""
+
+  - name: command_sequence_valid
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - command.sequence_id
+      - next_expected_sequence_id
+      - command.actor_player_id
+    output_range:
+      min: false
+      max: true
+    expression: "command.sequence_id == next_expected_sequence_id[command.actor_player_id]"
+    notes: "Actor-local command order must be gapless and duplicate-free for deterministic replay."
+    added: 2026-06-17
+    revised: ""
+
+  - name: godot_project_foundation_ready
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/menu-navigation-shell.md
+    variables:
+      - project_file_present
+      - godot_version_pinned
+      - directory_contract_present
+      - headless_smoke_available
+    output_range:
+      min: false
+      max: true
+    expression: "project_file_present and godot_version_pinned and directory_contract_present and headless_smoke_available"
+    notes: "Foundation is ready only when the project file, pinned engine, directory contract, and headless smoke path are present."
+    added: 2026-06-17
+    revised: ""
+
+  - name: project_settings_baseline_valid
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/release-checklist.md
+    variables:
+      - application_name_valid
+      - engine_feature_valid
+      - gdscript_warnings_enabled
+      - mobile_renderer_fallback_configured
+    output_range:
+      min: false
+      max: true
+    expression: "application_name_valid and engine_feature_valid and gdscript_warnings_enabled and mobile_renderer_fallback_configured"
+    notes: "Baseline Godot settings must preserve project identity, engine feature, GDScript warnings, and mobile renderer fallback."
+    added: 2026-06-17
+    revised: ""
+
+  - name: production_source_isolated
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - production_src_has_no_prototype_imports
+      - production_src_has_no_session_state_imports
+    output_range:
+      min: false
+      max: true
+    expression: "production_src_has_no_prototype_imports and production_src_has_no_session_state_imports"
+    notes: "Production source must not import disposable prototypes or production session-state files."
+    added: 2026-06-17
+    revised: ""
+
+  - name: headless_smoke_gate_ready
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/release-checklist.md
+    variables:
+      - godot_binary_resolved
+      - project_file_present
+      - smoke_script_present
+    output_range:
+      min: false
+      max: true
+    expression: "godot_binary_resolved and project_file_present and smoke_script_present"
+    notes: "Headless smoke gate is ready only when Godot, project.godot, and the smoke script are available."
+    added: 2026-06-17
+    revised: ""
+
+  - name: action_log_entry_complete
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - command_recorded
+      - state_hash_before_recorded
+      - result_recorded
+      - state_hash_after_recorded
+    output_range:
+      min: false
+      max: true
+    expression: "command_recorded and state_hash_before_recorded and result_recorded and state_hash_after_recorded"
+    notes: "Accepted command log entries must include command data, before hash, ordered result data, and after hash."
+    added: 2026-06-17
+    revised: ""
+
+  - name: replay_step_matches_expected
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - before_hash_matches
+      - command_reaccepted
+      - events_match
+      - after_hash_matches
+    output_range:
+      min: false
+      max: true
+    expression: "before_hash_matches and command_reaccepted and events_match and after_hash_matches"
+    notes: "One replay command step is valid only when pre-hash, acceptance, events, and post-hash all match."
+    added: 2026-06-17
+    revised: ""
+
+  - name: replay_data_compatible
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-authority-architecture.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - rule_set_version_matches
+      - card_data_hash_matches
+      - log_schema_supported
+    output_range:
+      min: false
+      max: true
+    expression: "rule_set_version_matches and card_data_hash_matches and log_schema_supported"
+    notes: "Replay must fail before command playback when rules, card data, or log schema are incompatible."
+    added: 2026-06-17
+    revised: ""
+
+  - name: determinism_fixture_valid
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - fixture_schema_supported
+      - setup_complete
+      - command_sequence_valid
+      - expected_outputs_present
+    output_range:
+      min: false
+      max: true
+    expression: "fixture_schema_supported and setup_complete and command_sequence_valid and expected_outputs_present"
+    notes: "A determinism fixture must have supported schema, complete setup, valid command order, and expected outputs before simulation runs."
+    added: 2026-06-17
+    revised: ""
+
+  - name: fixture_replay_verified
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - replay_data_compatible
+      - replay_matches_expected
+      - expected_replay_verified
+    output_range:
+      min: false
+      max: true
+    expression: "replay_data_compatible and replay_matches_expected and expected_replay_verified"
+    notes: "Positive replay fixtures pass only when compatibility, replay match, and fixture expectation all agree."
+    added: 2026-06-17
+    revised: ""
+
+  - name: golden_hash_matches
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - actual_final_hash
+      - expected_final_hash
+    output_range:
+      min: false
+      max: true
+    expression: "actual_final_hash == expected_final_hash"
+    notes: "Golden fixture hash comparison for deterministic regression gates."
+    added: 2026-06-17
+    revised: ""
+
+  - name: determinism_suite_passes
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - fixture_count
+      - DETERMINISM_SUITE_MIN_FIXTURES_MVP
+      - failed_fixture_count
+      - suite_runtime_ms
+      - DETERMINISM_SUITE_MAX_RUNTIME_MS
+    output_range:
+      min: false
+      max: true
+    expression: "fixture_count >= DETERMINISM_SUITE_MIN_FIXTURES_MVP and failed_fixture_count == 0 and suite_runtime_ms <= DETERMINISM_SUITE_MAX_RUNTIME_MS"
+    notes: "MVP determinism gate requires enough fixtures, zero failures, and runtime within budget."
+    added: 2026-06-17
+    revised: ""
+
+  - name: golden_update_allowed
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - golden_hash_update_requested
+      - update_reason_present
+      - affected_design_or_code_change_identified
+      - reviewer_approved
+    output_range:
+      min: false
+      max: true
+    expression: "golden_hash_update_requested and update_reason_present and affected_design_or_code_change_identified and reviewer_approved"
+    notes: "Golden outputs can change only with explicit reason, identified cause, and reviewer approval."
+    added: 2026-06-17
+    revised: ""
+
+  - name: card_data_hash
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/deck-construction-validation.md
+    variables:
+      - card_definitions_sorted_by_card_id
+      - card_schema_version
+      - canonical_serialize
+      - stable_hash
+    output_range:
+      min: "implementation-defined"
+      max: "implementation-defined"
+    expression: "stable_hash(canonical_serialize(card_definitions_sorted_by_card_id, card_schema_version))"
+    notes: "Replay and match setup must fail fast when the current card data hash differs from the expected hash."
+    added: 2026-06-17
+    revised: ""
+
+  - name: card_definition_valid
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+      - design/gdd/deck-construction-validation.md
+    variables:
+      - required_fields_present
+      - id_unique
+      - refs_resolve
+      - params_match_schema
+      - localization_keys_exist
+    output_range:
+      min: false
+      max: true
+    expression: "required_fields_present and id_unique and refs_resolve and params_match_schema and localization_keys_exist"
+    notes: "Card data validation blocks match start if a definition is incomplete or references missing schema data."
+    added: 2026-06-17
+    revised: ""
+
+  - name: mvp_card_pool_coverage
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+    variables:
+      - valid_mvp_cards
+      - MVP_CARD_POOL_TARGET
+    output_range:
+      min: 0.0
+      max: "1.0+"
+    expression: "valid_mvp_cards / MVP_CARD_POOL_TARGET"
+    notes: "Tracks whether the first playable prototype has enough valid cards to test archetype identity."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_size_valid
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - deck_card_count
+      - MVP_LOCAL_DECK_SIZE
+    output_range:
+      min: false
+      max: true
+    expression: "deck_card_count == MVP_LOCAL_DECK_SIZE"
+    notes: "MVP local constructed decks require an exact card count."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_copy_count_valid
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - highest_copy_count
+      - MVP_MAX_COPIES_PER_CARD
+    output_range:
+      min: false
+      max: true
+    expression: "highest_copy_count <= MVP_MAX_COPIES_PER_CARD"
+    notes: "No card id may exceed the MVP local copy limit."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_card_pool_valid
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - all_card_ids_resolve
+      - all_card_statuses_allowed
+      - format_id_supported
+    output_range:
+      min: false
+      max: true
+    expression: "all_card_ids_resolve and all_card_statuses_allowed and format_id_supported"
+    notes: "Deck card ids must exist and be legal for the selected format."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_composition_valid
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - unique_card_count
+      - MVP_MIN_UNIQUE_CARDS
+      - unit_card_count
+      - MVP_MIN_UNIT_CARDS
+      - response_card_count
+      - MVP_MIN_RESPONSE_CARDS
+      - MVP_MAX_RESPONSE_CARDS
+    output_range:
+      min: false
+      max: true
+    expression: "unique_card_count >= MVP_MIN_UNIQUE_CARDS and unit_card_count >= MVP_MIN_UNIT_CARDS and response_card_count >= MVP_MIN_RESPONSE_CARDS and response_card_count <= MVP_MAX_RESPONSE_CARDS"
+    notes: "MVP local decks need enough unique cards, units, and response cards to test lane-plus-stack play."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_legal
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-authority-architecture.md
+    variables:
+      - card_data_valid
+      - deck_size_valid
+      - deck_copy_count_valid
+      - deck_card_pool_valid
+      - deck_composition_valid
+    output_range:
+      min: false
+      max: true
+    expression: "card_data_valid and deck_size_valid and deck_copy_count_valid and deck_card_pool_valid and deck_composition_valid"
+    notes: "Hard gate before a deck can enter local match setup."
+    added: 2026-06-17
+    revised: ""
+
+  - name: deck_fingerprint
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-authority-architecture.md
+    variables:
+      - format_id
+      - card_data_hash
+      - deck_schema_version
+      - card_counts_sorted_by_card_id
+      - canonical_serialize
+      - stable_hash
+    output_range:
+      min: "implementation-defined"
+      max: "implementation-defined"
+    expression: "stable_hash(canonical_serialize(format_id, card_data_hash, deck_schema_version, card_counts_sorted_by_card_id))"
+    notes: "Stable deck legality fingerprint for setup, replay, and future authority diagnostics."
+    added: 2026-06-17
+    revised: ""
+
+  - name: prototype_card_pool_ready
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - valid_mvp_cards
+      - MVP_CARD_POOL_TARGET
+      - archetype_count
+      - MVP_ARCHETYPE_TARGET
+      - sample_deck_pair_ready
+    output_range:
+      min: false
+      max: true
+    expression: "valid_mvp_cards >= MVP_CARD_POOL_TARGET and archetype_count >= MVP_ARCHETYPE_TARGET and sample_deck_pair_ready"
+    notes: "Readiness gate before prototype cards can support first playable local deck validation."
+    added: 2026-06-17
+    revised: ""
+
+  - name: archetype_card_coverage
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - archetype_tagged_cards
+      - MVP_ARCHETYPE_CARD_TARGET
+    output_range:
+      min: 0.0
+      max: "1.0+"
+    expression: "archetype_tagged_cards / MVP_ARCHETYPE_CARD_TARGET"
+    notes: "Tracks whether each MVP archetype has enough valid tagged cards for testing."
+    added: 2026-06-17
+    revised: ""
+
+  - name: implementation_readiness_ratio
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/balance-content-tooling.md
+    variables:
+      - implementation_ready_cards
+      - MVP_CARD_POOL_TARGET
+    output_range:
+      min: 0.0
+      max: "1.0+"
+    expression: "implementation_ready_cards / MVP_CARD_POOL_TARGET"
+    notes: "Separates card design coverage from deterministic runtime readiness."
+    added: 2026-06-17
+    revised: ""
+
+  - name: sample_deck_pair_ready
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - lane_pressure_deck_legal
+      - response_control_deck_legal
+      - shared_card_data_hash
+    output_range:
+      min: false
+      max: true
+    expression: "lane_pressure_deck_legal and response_control_deck_legal and shared_card_data_hash"
+    notes: "Both MVP sample decks must validate against the same card data hash."
+    added: 2026-06-17
+    revised: ""
+
+  - name: match_setup_complete
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+    variables:
+      - rule_set_version_supported
+      - format_id_supported
+      - player_count_valid
+      - player_ids_unique
+      - card_data_hash_matches
+      - both_deck_loadouts_present
+    output_range:
+      min: false
+      max: true
+    expression: "rule_set_version_supported and format_id_supported and player_count_valid and player_ids_unique and card_data_hash_matches and both_deck_loadouts_present"
+    notes: "Local match setup is incomplete until it carries per-player validated deck loadouts."
+    added: 2026-06-17
+    revised: ""
+
+  - name: local_match_start_ready
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - card_data_valid
+      - both_decks_legal
+      - prototype_card_pool_ready
+      - match_setup_complete
+      - action_log_header_ready
+    output_range:
+      min: false
+      max: true
+    expression: "card_data_valid and both_decks_legal and prototype_card_pool_ready and match_setup_complete and action_log_header_ready"
+    notes: "First-playable local match start gate; smoke/dev exceptions must be explicit."
+    added: 2026-06-17
+    revised: ""
+
+  - name: opening_hand_valid
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    variables:
+      - all_player_hand_counts_equal_starting_size
+      - all_player_deck_counts_equal_remaining_size
+    output_range:
+      min: false
+      max: true
+    expression: "all_player_hand_counts_equal_starting_size and all_player_deck_counts_equal_remaining_size"
+    notes: "Opening setup must produce deterministic initial hands and remaining deck counts."
+    added: 2026-06-17
+    revised: ""
+
+  - name: main_action_budget_available
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/match-board-ui-input.md
+    variables:
+      - main_actions_used_this_turn
+      - MAIN_ACTIONS_PER_TURN_MVP
+    output_range:
+      min: false
+      max: true
+    expression: "main_actions_used_this_turn < MAIN_ACTIONS_PER_TURN_MVP"
+    notes: "MVP local flow follows the paper prototype's one proactive main action per turn."
+    added: 2026-06-17
+    revised: ""
+
+  - name: local_match_complete
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/match-board-ui-input.md
+    variables:
+      - player_life_zero_or_less
+      - surrender_accepted
+      - deck_empty_loss
+      - deterministic_halt
+    output_range:
+      min: false
+      max: true
+    expression: "player_life_zero_or_less or surrender_accepted or deck_empty_loss or deterministic_halt"
+    notes: "Terminal local match condition for first playable."
+    added: 2026-06-17
+    revised: ""
+
+  - name: local_match_replay_ready
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - action_log_finalized
+      - final_state_hash_recorded
+      - replay_data_compatible
+    output_range:
+      min: false
+      max: true
+    expression: "action_log_finalized and final_state_hash_recorded and replay_data_compatible"
+    notes: "A local result is not deterministic proof until its finalized log can be replayed."
+    added: 2026-06-17
+    revised: ""
+
+  - name: match_board_action_enabled
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/accessibility-focus-navigation.md
+    variables:
+      - local_match_active
+      - actor_has_prompt_priority
+      - action_in_legal_actions
+      - ui_locked_for_resolution
+    output_range:
+      min: false
+      max: true
+    expression: "local_match_active and actor_has_prompt_priority and action_in_legal_actions and not ui_locked_for_resolution"
+    notes: "Required action affordances are enabled only when the current prompt and legal-action query allow them."
+    added: 2026-06-17
+    revised: ""
+
+  - name: target_selection_complete
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+    variables:
+      - selected_source_valid
+      - required_target_count_met
+      - all_selected_targets_legal
+    output_range:
+      min: false
+      max: true
+    expression: "selected_source_valid and required_target_count_met and all_selected_targets_legal"
+    notes: "Targeted actions cannot be committed until all required targets are current and legal."
+    added: 2026-06-17
+    revised: ""
+
+  - name: touch_target_valid
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/accessibility-focus-navigation.md
+    variables:
+      - target_width_px
+      - target_height_px
+      - MIN_TOUCH_TARGET_PX
+    output_range:
+      min: false
+      max: true
+    expression: "target_width_px >= MIN_TOUCH_TARGET_PX and target_height_px >= MIN_TOUCH_TARGET_PX"
+    notes: "Required touch actions must meet the MVP touch target size."
+    added: 2026-06-17
+    revised: ""
+
+  - name: response_prompt_complete
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/tutorial-rules-explanation.md
+    variables:
+      - pending_original_visible
+      - defender_focus_visible
+      - legal_response_options_visible
+      - pass_response_visible
+    output_range:
+      min: false
+      max: true
+    expression: "pending_original_visible and defender_focus_visible and legal_response_options_visible and pass_response_visible"
+    notes: "A response prompt is incomplete unless the original action, focus, response choices, and pass are all visible or reachable."
+    added: 2026-06-17
+    revised: ""
+
+  - name: ui_state_synced
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/determinism-test-harness.md
+    variables:
+      - displayed_state_hash
+      - latest_state_hash
+      - pending_authoritative_update_count
+    output_range:
+      min: false
+      max: true
+    expression: "displayed_state_hash == latest_state_hash and pending_authoritative_update_count == 0"
+    notes: "Presentation state must reconcile to the latest authoritative snapshot after accepted commands."
+    added: 2026-06-17
+    revised: ""
+
+  - name: card_text_fits_mvp
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/localization-text-layout.md
+      - design/gdd/card-frame-visual-identity-system.md
+    variables:
+      - rules_text_line_count
+      - MAX_CARD_TEXT_LINES_MVP
+      - localized_text_not_overflowing
+    output_range:
+      min: false
+      max: true
+    expression: "rules_text_line_count <= MAX_CARD_TEXT_LINES_MVP and localized_text_not_overflowing"
+    notes: "Compact card rules text must fit MVP card frame constraints or require a detail view/wording change."
+    added: 2026-06-17
+    revised: ""
+
+  - name: input_device_context_supported
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/menu-navigation-shell.md
+      - design/gdd/accessibility-focus-navigation.md
+    variables:
+      - platform_supports_device
+      - action_map_available
+      - context_policy_enabled
+    output_range:
+      min: false
+      max: true
+    expression: "platform_supports_device and action_map_available and context_policy_enabled"
+    notes: "A device context is usable only when the platform, action map, and MVP screen policy all allow it."
+    added: 2026-06-17
+    revised: ""
+
+  - name: interaction_intent_valid
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/menu-navigation-shell.md
+    variables:
+      - input_device_context_supported
+      - semantic_action_known
+      - target_affordance_valid
+      - prompt_accepts_action
+      - gameplay_submit_locked
+    output_range:
+      min: false
+      max: true
+    expression: "input_device_context_supported and semantic_action_known and target_affordance_valid and prompt_accepts_action and not gameplay_submit_locked"
+    notes: "Raw input becomes a valid UI intent only after device, action, target, prompt, and lock checks pass."
+    added: 2026-06-17
+    revised: ""
+
+  - name: focus_route_complete
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/accessibility-focus-navigation.md
+      - design/gdd/menu-navigation-shell.md
+    variables:
+      - all_required_controls_focusable
+      - directional_neighbors_defined
+      - cancel_path_defined
+      - no_hover_only_required_action
+    output_range:
+      min: false
+      max: true
+    expression: "all_required_controls_focusable and directional_neighbors_defined and cancel_path_defined and no_hover_only_required_action"
+    notes: "Keyboard/gamepad navigation is complete only when required controls, direction routes, cancel, and no-hover access all pass."
+    added: 2026-06-17
+    revised: ""
+
+  - name: gesture_disambiguated
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/tutorial-rules-explanation.md
+    variables:
+      - gesture_matches_single_intent
+      - gesture_conflicts_with_scroll
+      - confirm_policy_satisfied
+    output_range:
+      min: false
+      max: true
+    expression: "gesture_matches_single_intent and not gesture_conflicts_with_scroll and confirm_policy_satisfied"
+    notes: "Touch gestures must map to one intent and satisfy confirm policy before a gameplay submit can occur."
+    added: 2026-06-17
+    revised: ""
+
+  - name: platform_layout_ready
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/localization-text-layout.md
+      - design/gdd/accessibility-focus-navigation.md
+    variables:
+      - required_regions_visible
+      - required_touch_targets_valid
+      - safe_area_respected
+      - focus_route_complete
+    output_range:
+      min: false
+      max: true
+    expression: "required_regions_visible and required_touch_targets_valid and safe_area_respected and focus_route_complete"
+    notes: "A platform layout is ready only when required regions, touch targets, safe area, and focus route all pass."
+    added: 2026-06-17
+    revised: ""
+
+  - name: main_resource_refresh
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - max_main_resource
+      - MAIN_RESOURCE_GAIN_PER_TURN
+      - MAIN_RESOURCE_CAP
+    output_range:
+      min: 1
+      max: 10
+    expression: "min(max_main_resource + MAIN_RESOURCE_GAIN_PER_TURN, MAIN_RESOURCE_CAP)"
+    notes: "Refreshes active player's max and current main resource at Start Phase."
+    added: 2026-06-17
+    revised: ""
+
+  - name: focus_refresh
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - RESPONSE_FOCUS_PER_OPPONENT_TURN
+    output_range:
+      min: 1
+      max: 3
+    expression: "focus = RESPONSE_FOCUS_PER_OPPONENT_TURN"
+    notes: "Dedicated response resource for the defending player during an opponent turn."
+    added: 2026-06-17
+    revised: ""
+
+  - name: command_timing_valid
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/local-match-flow.md
+    variables:
+      - phase_allows_speed
+      - actor_has_priority
+      - resource_pool_can_pay
+    output_range:
+      min: false
+      max: true
+    expression: "phase_allows_speed and actor_has_priority and resource_pool_can_pay"
+    notes: "Timing legality gate before command mutation."
+    added: 2026-06-17
+    revised: ""
+
+  - name: lane_occupancy_valid
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+    variables:
+      - lane_exists
+      - owner_player_id_valid
+      - slot_empty_for_owner
+    output_range:
+      min: false
+      max: true
+    expression: "lane_exists and owner_player_id_valid and slot_empty_for_owner"
+    notes: "Placement legality for a player-owned lane slot."
+    added: 2026-06-17
+    revised: ""
+
+  - name: adjacent_lane_move_valid
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+    variables:
+      - source_lane_index
+      - destination_lane_index
+      - destination_slot_empty
+    output_range:
+      min: false
+      max: true
+    expression: "abs(source_lane_index - destination_lane_index) == 1 and destination_slot_empty"
+    notes: "MVP adjacent movement rule for lane changes."
+    added: 2026-06-17
+    revised: ""
+
+  - name: unit_destroyed
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/card-effect-resolution-system.md
+    variables:
+      - unit.health
+    output_range:
+      min: false
+      max: true
+    expression: "unit.health <= 0"
+    notes: "Runtime unit is removed from board when health reaches zero or below."
+    added: 2026-06-17
+    revised: ""
+
+  - name: response_window_opens
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+    variables:
+      - eligible_trigger
+      - defender_exists
+      - match_not_complete
+      - no_response_window_open
+    output_range:
+      min: false
+      max: true
+    expression: "eligible_trigger and defender_exists and match_not_complete and no_response_window_open"
+    notes: "Determines whether an accepted original action enters a response window before mutation."
+    added: 2026-06-17
+    revised: ""
+
+  - name: response_command_valid
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+    variables:
+      - response_window_open
+      - actor_is_defender
+      - card_speed_is_response
+      - focus_can_pay
+      - responses_used_in_window
+      - MAX_RESPONSES_PER_WINDOW_MVP
+    output_range:
+      min: false
+      max: true
+    expression: "response_window_open and actor_is_defender and card_speed_is_response and focus_can_pay and responses_used_in_window < MAX_RESPONSES_PER_WINDOW_MVP"
+    notes: "MVP response-card legality gate before accepting a response stack item."
+    added: 2026-06-17
+    revised: ""
+
+  - name: stack_resolution_order
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/action-log-replay-system.md
+    variables:
+      - response_item
+      - original_item
+      - response_item_then_original_item
+    output_range:
+      min: 1
+      max: 2
+    expression: "response_item_then_original_item"
+    notes: "MVP stack resolves an accepted response before the pending original action."
+    added: 2026-06-17
+    revised: ""
+
+  - name: original_action_still_legal
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+    variables:
+      - original_exists
+      - original_canceled
+      - current_targets_legal
+      - match_not_complete
+    output_range:
+      min: false
+      max: true
+    expression: "original_exists and not original_canceled and current_targets_legal and match_not_complete"
+    notes: "Rechecks a pending original action after any response resolves."
+    added: 2026-06-17
+    revised: ""
+
+  - name: effect_batch_resolution
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/action-log-replay-system.md
+    variables:
+      - effect_refs_sorted_by_card_order
+      - current_state
+      - resolve
+    output_range:
+      min: 0
+      max: MAX_EFFECT_REFS_PER_CARD
+    expression: "resolve(effect_refs_sorted_by_card_order, current_state)"
+    notes: "Resolves card effect refs sequentially in card data order."
+    added: 2026-06-17
+    revised: ""
+
+  - name: damage_application
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/action-log-replay-system.md
+    variables:
+      - target_health_before
+      - damage_amount
+      - target_health_after_damage
+    output_range:
+      min: 0
+      max: 999
+    expression: "max(0, target_health_before - damage_amount)"
+    notes: "Integer damage clamp for unit health or player life."
+    added: 2026-06-17
+    revised: ""
+
+  - name: heal_application
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/zone-lane-board-system.md
+    variables:
+      - target_health_before
+      - heal_amount
+      - target_max_health
+    output_range:
+      min: 1
+      max: 999
+    expression: "min(target_max_health, target_health_before + heal_amount)"
+    notes: "Integer heal clamp for units; healing does not revive destroyed units."
+    added: 2026-06-17
+    revised: ""
+
+  - name: effect_target_still_legal
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/match-board-ui-input.md
+    variables:
+      - target_exists
+      - target_matches_profile
+      - target_protected_from_effect
+    output_range:
+      min: false
+      max: true
+    expression: "target_exists and target_matches_profile and not target_protected_from_effect"
+    notes: "Current-state legality check before resolving an effect."
+    added: 2026-06-17
+    revised: ""
+
+  - name: cancel_original_valid
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/stack-response-system.md
+    variables:
+      - response_window_open
+      - original_exists
+      - original_command_type_allowed
+    output_range:
+      min: false
+      max: true
+    expression: "response_window_open and original_exists and original_command_type_allowed"
+    notes: "Legality check for response effects that cancel the pending original stack item."
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
@@ -139,7 +1282,1103 @@ formulas: []
 #
 # Required fields: name, status, source, referenced_by, value, unit, added
 
-constants: []
+constants:
+  - name: GODOT_ENGINE_VERSION
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - docs/engine-reference/godot/VERSION.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/menu-navigation-shell.md
+    value: "4.6.3"
+    unit: version
+    added: 2026-06-17
+    revised: ""
+
+  - name: GODOT_PROJECT_FILE_PATH
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/release-checklist.md
+    value: project.godot
+    unit: path
+    added: 2026-06-17
+    revised: ""
+
+  - name: GODOT_PROJECT_CONFIG_VERSION
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/release-checklist.md
+    value: 5
+    unit: config_version
+    added: 2026-06-17
+    revised: ""
+
+  - name: FIRST_PARTY_TARGET_PLATFORM_COUNT
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/menu-navigation-shell.md
+    value: 3
+    unit: platforms
+    added: 2026-06-17
+    revised: ""
+
+  - name: WEB_MOBILE_MEMORY_CEILING_MB
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/content-pipeline.md
+    value: 512
+    unit: MB
+    added: 2026-06-17
+    revised: ""
+
+  - name: GDSCRIPT_UNSAFE_WARNING_LEVEL
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/release-checklist.md
+    value: 1
+    unit: warning_level
+    added: 2026-06-17
+    revised: ""
+
+  - name: PRODUCTION_SOURCE_ROOT
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/card-data-model.md
+      - design/gdd/determinism-test-harness.md
+    value: src
+    unit: path
+    added: 2026-06-17
+    revised: ""
+
+  - name: TEST_ROOT_PATH
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: tests
+    unit: path
+    added: 2026-06-17
+    revised: ""
+
+  - name: PROTOTYPE_ROOT_PATH
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/determinism-test-harness.md
+    value: prototypes
+    unit: path
+    added: 2026-06-17
+    revised: ""
+
+  - name: HEADLESS_SMOKE_SCRIPT_PATH
+    status: active
+    source: design/gdd/godot-project-foundation.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/release-checklist.md
+    value: tools/smoke/smoke_deterministic_core.gd
+    unit: path
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_COMMANDS_PER_MATCH
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+    value: 500
+    unit: commands
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_EVENTS_PER_COMMAND
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+    value: 64
+    unit: events
+    added: 2026-06-17
+    revised: ""
+
+  - name: REPLAY_HASH_CHECK_FREQUENCY
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/determinism-test-harness.md
+    value: every_accepted_command
+    unit: mode
+    added: 2026-06-17
+    revised: ""
+
+  - name: PERSIST_REJECTED_COMMANDS_MVP
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/match-authority-architecture.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_REPLAY_MISMATCHES_REPORTED_MVP
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/determinism-test-harness.md
+    value: 10
+    unit: mismatches
+    added: 2026-06-17
+    revised: ""
+
+  - name: LOG_NON_CANONICAL_METADATA
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: STRUCTURED_EVENT_SCHEMA_REQUIRED
+    status: active
+    source: design/gdd/action-log-replay-system.md
+    referenced_by:
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/match-authority-architecture.md
+    value: before_ui_replay_production
+    unit: milestone
+    added: 2026-06-17
+    revised: ""
+
+  - name: DETERMINISM_FIXTURE_SCHEMA_VERSION
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: 1
+    unit: version
+    added: 2026-06-17
+    revised: ""
+
+  - name: DETERMINISM_SUITE_MIN_FIXTURES_MVP
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: 6
+    unit: fixtures
+    added: 2026-06-17
+    revised: ""
+
+  - name: DETERMINISM_SUITE_MAX_RUNTIME_MS
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: 5000
+    unit: ms
+    added: 2026-06-17
+    revised: ""
+
+  - name: HEADLESS_SMOKE_REQUIRED
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/release-checklist.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: GOLDEN_HASH_UPDATE_REQUIRES_REVIEW
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: FIXTURE_SORT_ORDER
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: fixture_id_ascending
+    unit: mode
+    added: 2026-06-17
+    revised: ""
+
+  - name: NEGATIVE_FIXTURE_REQUIRED_MVP
+    status: active
+    source: design/gdd/determinism-test-harness.md
+    referenced_by:
+      - design/gdd/determinism-test-harness.md
+      - design/gdd/balance-content-tooling.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_FLOATS_IN_CORE_STATE
+    status: active
+    source: design/gdd/deterministic-simulation-core.md
+    referenced_by:
+      - design/gdd/deterministic-simulation-core.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: CARD_SCHEMA_VERSION
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+    value: 1
+    unit: version
+    added: 2026-06-17
+    revised: ""
+
+  - name: DECK_SCHEMA_VERSION
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/action-log-replay-system.md
+    value: 1
+    unit: version
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_LOCAL_FORMAT_ID
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/local-match-flow.md
+    value: mvp_local
+    unit: format_id
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_LOCAL_DECK_SIZE
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 20
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_MAX_COPIES_PER_CARD
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 2
+    unit: copies
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_MIN_UNIQUE_CARDS
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+    value: 10
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_MIN_UNIT_CARDS
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/zone-lane-board-system.md
+    value: 6
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_MIN_RESPONSE_CARDS
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/stack-response-system.md
+    value: 4
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_MAX_RESPONSE_CARDS
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/stack-response-system.md
+    value: 8
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_PROTOTYPE_CARDS_IN_MVP_LOCAL
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/prototype-card-set-archetypes.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: SIDEBOARD_SIZE_MVP
+    status: active
+    source: design/gdd/deck-construction-validation.md
+    referenced_by:
+      - design/gdd/deck-construction-validation.md
+      - design/gdd/local-match-flow.md
+    value: 0
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_CARD_POOL_TARGET
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+      - design/gdd/prototype-card-set-archetypes.md
+    value: 24
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_EFFECT_REFS_PER_CARD
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/prototype-card-set-archetypes.md
+    value: 3
+    unit: effect_refs
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_TAGS_PER_CARD
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+    value: 8
+    unit: tags
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_BASE_COST_MVP
+    status: active
+    source: design/gdd/card-data-model.md
+    referenced_by:
+      - design/gdd/card-data-model.md
+    value: 10
+    unit: resource
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_ARCHETYPE_TARGET
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/balance-content-tooling.md
+    value: 2
+    unit: archetypes
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_ARCHETYPE_CARD_TARGET
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/balance-content-tooling.md
+    value: 12
+    unit: cards_per_archetype
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_SAMPLE_DECK_COUNT
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+    value: 2
+    unit: decks
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_INITIAL_SEED_CARD_COUNT
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+    value: 12
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MVP_IMPLEMENTATION_READY_CARD_TARGET
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+    value: 24
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: PROTOTYPE_CARD_STATUS
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/card-data-model.md
+    value: prototype
+    unit: card_status
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_CARDS_PER_ARCHETYPE_SAMPLE
+    status: active
+    source: design/gdd/prototype-card-set-archetypes.md
+    referenced_by:
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/deck-construction-validation.md
+    value: 20
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: LOCAL_MATCH_PLAYER_COUNT
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/deterministic-simulation-core.md
+    value: 2
+    unit: players
+    added: 2026-06-17
+    revised: ""
+
+  - name: LOCAL_MATCH_RULE_SET_VERSION
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/deterministic-simulation-core.md
+      - design/gdd/action-log-replay-system.md
+    value: 1
+    unit: version
+    added: 2026-06-17
+    revised: ""
+
+  - name: STARTING_HAND_SIZE_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 4
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_HAND_SIZE_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 10
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: MULLIGAN_ENABLED_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: LOCAL_MATCH_USES_ORDERED_DECKS_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/action-log-replay-system.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAIN_ACTIONS_PER_TURN_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/match-board-ui-input.md
+    value: 1
+    unit: actions
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_LOCAL_MATCH_TURNS_MVP
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/determinism-test-harness.md
+    value: 40
+    unit: turns
+    added: 2026-06-17
+    revised: ""
+
+  - name: LOCAL_MATCH_REPLAY_REQUIRED
+    status: active
+    source: design/gdd/local-match-flow.md
+    referenced_by:
+      - design/gdd/local-match-flow.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/determinism-test-harness.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: MIN_TOUCH_TARGET_PX
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: 48
+    unit: pixels
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_CARD_TEXT_LINES_MVP
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/localization-text-layout.md
+      - design/gdd/card-frame-visual-identity-system.md
+    value: 4
+    unit: lines
+    added: 2026-06-17
+    revised: ""
+
+  - name: HAND_CARD_VISIBLE_COUNT_MVP
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+    value: 10
+    unit: cards
+    added: 2026-06-17
+    revised: ""
+
+  - name: ACTION_LOG_VISIBLE_ROWS_MVP
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/action-log-replay-system.md
+    value: 3
+    unit: rows
+    added: 2026-06-17
+    revised: ""
+
+  - name: MATCH_BOARD_DRAW_CALL_BUDGET
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/godot-project-foundation.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/card-frame-visual-identity-system.md
+    value: 150
+    unit: draw_calls
+    added: 2026-06-17
+    revised: ""
+
+  - name: UI_STATE_SYNC_BUDGET_MS
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/determinism-test-harness.md
+    value: 100
+    unit: ms
+    added: 2026-06-17
+    revised: ""
+
+  - name: LEGAL_ACTION_QUERY_UI_BUDGET_MS
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+    value: 50
+    unit: ms
+    added: 2026-06-17
+    revised: ""
+
+  - name: SELECT_CONFIRM_REQUIRED_MVP
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: TARGET_PREVIEW_REQUIRED
+    status: active
+    source: design/gdd/match-board-ui-input.md
+    referenced_by:
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/tutorial-rules-explanation.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: INPUT_CONTEXT_SWITCH_DEBOUNCE_MS
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/menu-navigation-shell.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: 150
+    unit: ms
+    added: 2026-06-17
+    revised: ""
+
+  - name: LONG_PRESS_INSPECT_MS
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/tutorial-rules-explanation.md
+    value: 450
+    unit: ms
+    added: 2026-06-17
+    revised: ""
+
+  - name: DRAG_SCROLL_DEADZONE_PX
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+    value: 12
+    unit: pixels
+    added: 2026-06-17
+    revised: ""
+
+  - name: FOCUS_ROUTE_MAX_STEPS_MVP
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/menu-navigation-shell.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: 12
+    unit: focus_steps
+    added: 2026-06-17
+    revised: ""
+
+  - name: SUPPORTED_INPUT_METHOD_COUNT_MVP
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/menu-navigation-shell.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: 4
+    unit: input_methods
+    added: 2026-06-17
+    revised: ""
+
+  - name: GAMEPAD_MATCH_NAVIGATION_MVP
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/menu-navigation-shell.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: partial
+    unit: support_level
+    added: 2026-06-17
+    revised: ""
+
+  - name: SAFE_AREA_MARGIN_PX
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/localization-text-layout.md
+    value: 16
+    unit: pixels
+    added: 2026-06-17
+    revised: ""
+
+  - name: HOVER_ONLY_REQUIRED_ACTIONS_ALLOWED
+    status: active
+    source: design/gdd/cross-platform-interaction-layer.md
+    referenced_by:
+      - design/gdd/cross-platform-interaction-layer.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/accessibility-focus-navigation.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: STARTING_MAX_MAIN_RESOURCE
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+    value: 0
+    unit: resource
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAIN_RESOURCE_GAIN_PER_TURN
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+    value: 1
+    unit: resource_per_turn
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAIN_RESOURCE_CAP
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+    value: 10
+    unit: resource
+    added: 2026-06-17
+    revised: ""
+
+  - name: RESPONSE_FOCUS_PER_OPPONENT_TURN
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 2
+    unit: focus
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_FOCUS
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 2
+    unit: focus
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_RESPONSES_PER_WINDOW_MVP
+    status: active
+    source: design/gdd/turn-timing-resource-system.md
+    referenced_by:
+      - design/gdd/turn-timing-resource-system.md
+      - design/gdd/stack-response-system.md
+      - design/gdd/prototype-card-set-archetypes.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 1
+    unit: responses
+    added: 2026-06-17
+    revised: ""
+
+  - name: RESPONSE_STACK_MAX_DEPTH_MVP
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/prototype-card-set-archetypes.md
+    value: 2
+    unit: stack_items
+    added: 2026-06-17
+    revised: ""
+
+  - name: OPEN_WINDOW_ON_UNIT_PLACEMENT
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: OPEN_WINDOW_ON_TARGETED_SPELL
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: OPEN_WINDOW_ON_ATTACK_DECLARATION
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: RESPONSE_PASS_REQUIRED
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/action-log-replay-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+      - design/gdd/match-authority-architecture.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: DEFAULT_MULTI_TARGET_FIZZLE_MODE
+    status: active
+    source: design/gdd/stack-response-system.md
+    referenced_by:
+      - design/gdd/stack-response-system.md
+      - design/gdd/card-effect-resolution-system.md
+    value: all_required_targets
+    unit: mode
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_DAMAGE_AMOUNT_MVP
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/balance-content-tooling.md
+    value: 10
+    unit: damage
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_HEAL_AMOUNT_MVP
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/balance-content-tooling.md
+    value: 10
+    unit: healing
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_PARTIAL_MULTI_TARGET_RESOLUTION
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/stack-response-system.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_RANDOM_EFFECTS_MVP
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/deterministic-simulation-core.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_NON_ADJACENT_EFFECT_MOVEMENT_MVP
+    status: active
+    source: design/gdd/card-effect-resolution-system.md
+    referenced_by:
+      - design/gdd/card-effect-resolution-system.md
+      - design/gdd/zone-lane-board-system.md
+    value: false
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: LANE_COUNT_MVP
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/match-board-ui-input.md
+    value: 3
+    unit: lanes
+    added: 2026-06-17
+    revised: ""
+
+  - name: MAX_UNITS_PER_PLAYER_PER_LANE
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/match-board-ui-input.md
+    value: 1
+    unit: units
+    added: 2026-06-17
+    revised: ""
+
+  - name: STARTING_PLAYER_LIFE
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/local-match-flow.md
+      - design/gdd/match-board-ui-input.md
+    value: 20
+    unit: life
+    added: 2026-06-17
+    revised: ""
+
+  - name: UNIT_READY_ON_OWNER_NEXT_TURN
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+      - design/gdd/match-board-ui-input.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
+
+  - name: ALLOW_ADJACENT_MOVEMENT_ONLY
+    status: active
+    source: design/gdd/zone-lane-board-system.md
+    referenced_by:
+      - design/gdd/zone-lane-board-system.md
+    value: true
+    unit: boolean
+    added: 2026-06-17
+    revised: ""
 
 # Example:
 #
