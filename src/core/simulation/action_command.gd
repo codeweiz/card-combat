@@ -25,3 +25,19 @@ func to_canonical_data() -> Dictionary:
 		"target_id": target_id,
 		"target_lane": target_lane,
 	}
+
+
+## Rebuilds a command from canonical data.
+static func from_canonical_data(data: Dictionary) -> ActionCommand:
+	if data == null:
+		return null
+	var command := ActionCommand.new()
+	command.actor_player_id = StringName(data.get("actor_player_id", &""))
+	command.card_id = StringName(data.get("card_id", &""))
+	command.command_id = StringName(data.get("command_id", &""))
+	command.command_type = StringName(data.get("command_type", &""))
+	command.expected_state_hash = String(data.get("expected_state_hash", ""))
+	command.sequence_id = int(data.get("sequence_id", 0))
+	command.target_id = StringName(data.get("target_id", &""))
+	command.target_lane = StringName(data.get("target_lane", &""))
+	return command

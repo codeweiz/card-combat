@@ -10,7 +10,14 @@ var _effect_resolver := CardEffectResolver.new()
 
 const COMMAND_END_TURN: StringName = &"end_turn"
 const COMMAND_ATTACK_UNIT: StringName = &"attack_unit"
+const COMMAND_PLAY_RESPONSE: StringName = &"play_response"
+const COMMAND_PASS_RESPONSE: StringName = &"pass_response"
+const COMMAND_PLAY_UNIT: StringName = &"play_unit"
+const COMMAND_PLAY_SPELL: StringName = &"play_spell"
+const COMMAND_NOOP: StringName = &"noop"
+const COMMAND_SURRENDER: StringName = &"surrender"
 const END_REASON_LIFE_ZERO: StringName = &"life_zero"
+const END_REASON_SURRENDER: StringName = &"surrender"
 const MAIN_ACTIONS_PER_TURN_MVP: int = 1
 const PHASE_MAIN: StringName = &"main"
 const PHASE_ATTACK: StringName = &"attack"
@@ -27,6 +34,11 @@ func initialize_match(setup: MatchSetup, card_database: CardDatabase) -> Simulat
 		return SimulationResult.rejected_result(&"invalid_card_database", "; ".join(report.errors))
 	if setup.player_ids.size() != 2:
 		return SimulationResult.rejected_result(&"invalid_player_count", "MVP local matches require exactly two players")
+	if setup.player_deck_loadouts.size() != MatchSetup.LOCAL_MATCH_PLAYER_COUNT:
+		return SimulationResult.rejected_result(&"invalid_player_deck_loadouts", "Local match setup requires one loadout per player")
+	var loadout_validation := _validate_player_deck_loadouts(setup, card_database)
+	if not loadout_validation.accepted:
+		return loadout_validation
 	if setup.card_data_hash != card_database.get_card_data_hash():
 		return SimulationResult.rejected_result(&"card_hash_mismatch", "MatchSetup card_data_hash does not match CardDatabase")
 	_card_database = card_database
@@ -51,15 +63,17 @@ func submit_command(command: ActionCommand) -> SimulationResult:
 		return SimulationResult.rejected_result(&"sequence_mismatch", "Expected sequence %d for %s" % [expected_sequence, command.actor_player_id], _state.get_state_hash())
 	if command.command_id == &"":
 		return SimulationResult.rejected_result(&"missing_command_id", "command_id is required", _state.get_state_hash())
-	if not _state.complete and command.command_type != &"pass_response" and command.command_type != &"play_response" and command.actor_player_id != _state.active_player_id:
+	if not _state.complete and command.command_type != COMMAND_PASS_RESPONSE and command.command_type != COMMAND_PLAY_RESPONSE and command.command_type != COMMAND_SURRENDER and command.actor_player_id != _state.active_player_id:
 		return SimulationResult.rejected_result(&"wrong_player_turn", "Actor is not the active player", _state.get_state_hash())
+	if command.command_type == COMMAND_SURRENDER:
+		return _submit_surrender(command)
 	if _state.response_window.is_open():
-		if command.command_type == &"pass_response":
+		if command.command_type == COMMAND_PASS_RESPONSE:
 			return _submit_pass_response(command)
-		if command.command_type == &"play_response":
+		if command.command_type == COMMAND_PLAY_RESPONSE:
 			return _submit_play_response(command)
 		return SimulationResult.rejected_result(&"response_window_open", "Only response or pass commands are legal while a response window is open", _state.get_state_hash())
-	if command.command_type == &"noop":
+	if command.command_type == COMMAND_NOOP:
 		if _state.turn_phase != PHASE_MAIN:
 			return SimulationResult.rejected_result(&"noop_invalid_phase", "noop is only valid in main phase", _state.get_state_hash())
 		return _accept_command(command, ["noop_accepted"])
@@ -67,9 +81,9 @@ func submit_command(command: ActionCommand) -> SimulationResult:
 		return _submit_end_turn(command)
 	if command.command_type == COMMAND_ATTACK_UNIT:
 		return _submit_attack_unit(command)
-	if command.command_type == &"play_spell":
+	if command.command_type == COMMAND_PLAY_SPELL:
 		return _submit_play_spell(command)
-	if command.command_type == &"play_unit":
+	if command.command_type == COMMAND_PLAY_UNIT:
 		return _submit_play_unit(command)
 	return SimulationResult.rejected_result(&"unsupported_command", "Unsupported command type %s" % command.command_type, _state.get_state_hash())
 
@@ -98,7 +112,7 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 			var pass_command := ActionCommand.new()
 			pass_command.command_id = StringName("preview_pass_response_%s" % preview_prefix)
 			pass_command.actor_player_id = player_id
-			pass_command.command_type = &"pass_response"
+			pass_command.command_type = COMMAND_PASS_RESPONSE
 			pass_command.sequence_id = sequence_id
 			pass_command.expected_state_hash = _state.get_state_hash()
 			actions.append(pass_command)
@@ -111,7 +125,7 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 				var response_command := ActionCommand.new()
 				response_command.command_id = StringName("preview_play_response_%s_%s" % [card_id, preview_prefix])
 				response_command.actor_player_id = player_id
-				response_command.command_type = &"play_response"
+				response_command.command_type = COMMAND_PLAY_RESPONSE
 				response_command.card_id = card_id
 				response_command.sequence_id = sequence_id
 				response_command.expected_state_hash = _state.get_state_hash()
@@ -151,10 +165,18 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 	var command := ActionCommand.new()
 	command.command_id = StringName("preview_noop_%s" % preview_prefix)
 	command.actor_player_id = player_id
-	command.command_type = &"noop"
+	command.command_type = COMMAND_NOOP
 	command.sequence_id = sequence_id
 	command.expected_state_hash = _state.get_state_hash()
 	actions.append(command)
+	if player_id == _state.active_player_id and _state.turn_phase == PHASE_MAIN:
+		var surrender_command := ActionCommand.new()
+		surrender_command.command_id = StringName("preview_surrender_%s" % preview_prefix)
+		surrender_command.actor_player_id = player_id
+		surrender_command.command_type = COMMAND_SURRENDER
+		surrender_command.sequence_id = sequence_id
+		surrender_command.expected_state_hash = _state.get_state_hash()
+		actions.append(surrender_command)
 
 	for card_id: StringName in _card_database.get_card_ids():
 		var definition: CardDefinition = _card_database.get_card_definition(card_id)
@@ -166,7 +188,7 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 					var play_unit := ActionCommand.new()
 					play_unit.command_id = StringName("preview_play_unit_%s_%s" % [card_id, lane_id])
 					play_unit.actor_player_id = player_id
-					play_unit.command_type = &"play_unit"
+					play_unit.command_type = COMMAND_PLAY_UNIT
 					play_unit.card_id = card_id
 					play_unit.target_lane = lane_id
 					play_unit.sequence_id = sequence_id
@@ -177,12 +199,26 @@ func query_legal_actions(player_id: StringName) -> Array[ActionCommand]:
 			var play_spell := ActionCommand.new()
 			play_spell.command_id = StringName("preview_play_spell_%s" % card_id)
 			play_spell.actor_player_id = player_id
-			play_spell.command_type = &"play_spell"
+			play_spell.command_type = COMMAND_PLAY_SPELL
 			play_spell.card_id = card_id
 			play_spell.sequence_id = sequence_id
 			play_spell.expected_state_hash = _state.get_state_hash()
 			actions.append(play_spell)
 	return actions
+
+
+func _submit_surrender(command: ActionCommand) -> SimulationResult:
+	if command.actor_player_id != _state.active_player_id:
+		return SimulationResult.rejected_result(&"wrong_player_turn", "Actor is not the active player", _state.get_state_hash())
+	var winner_id := _get_opponent_player_id(command.actor_player_id)
+	if winner_id == &"":
+		return SimulationResult.rejected_result(&"missing_defender", "surrender requires an opposing player", _state.get_state_hash())
+	_state.winner_player_id = winner_id
+	_state.loser_player_id = command.actor_player_id
+	_state.end_reason = END_REASON_SURRENDER
+	_state.complete = true
+	_record_accepted_command(command)
+	return SimulationResult.accepted_result(_state.get_state_hash(), ["match_complete:surrender:%s" % winner_id])
 
 
 func _submit_play_unit(command: ActionCommand) -> SimulationResult:
@@ -260,9 +296,9 @@ func _resolve_pending_original_after_response() -> Array[String]:
 		events.append("response_window_closed:%s" % _state.response_window.window_id)
 		_state.response_window.clear()
 		return events
-	if original.command_type == &"play_unit":
+	if original.command_type == COMMAND_PLAY_UNIT:
 		events.append_array(_resolve_original_play_unit(original))
-	elif original.command_type == &"play_spell":
+	elif original.command_type == COMMAND_PLAY_SPELL:
 		events.append_array(_resolve_original_play_spell(original))
 	elif original.command_type == COMMAND_ATTACK_UNIT:
 		events.append_array(_resolve_original_attack(original))
@@ -480,6 +516,37 @@ func _check_match_completion() -> Array[String]:
 	_state.winner_player_id = &""
 	_state.loser_player_id = &""
 	return ["match_complete:draw_by_life"]
+
+
+func _validate_player_deck_loadouts(setup: MatchSetup, card_database: CardDatabase) -> SimulationResult:
+	if setup == null:
+		return SimulationResult.rejected_result(&"missing_setup", "MatchSetup is required")
+	if setup.player_ids.size() != setup.player_deck_loadouts.size():
+		return SimulationResult.rejected_result(&"invalid_player_deck_loadouts", "Player loadouts must match player count")
+	var expected_players: Dictionary = {}
+	for player_id: StringName in setup.player_ids:
+		if player_id == &"":
+			return SimulationResult.rejected_result(&"invalid_player_id", "player_ids cannot contain empty value")
+		if expected_players.has(player_id):
+			return SimulationResult.rejected_result(&"invalid_player_ids", "Duplicate player id in setup")
+		expected_players[player_id] = false
+	var seen_loadouts: Dictionary = {}
+	for loadout in setup.player_deck_loadouts:
+		if loadout == null:
+			return SimulationResult.rejected_result(&"invalid_loadout", "loadout is required for each player")
+		if loadout.player_id == &"":
+			return SimulationResult.rejected_result(&"invalid_loadout_player", "loadout.player_id cannot be empty")
+		if not expected_players.has(loadout.player_id):
+			return SimulationResult.rejected_result(&"invalid_loadout_player", "Loadout player_id does not exist in setup")
+		if seen_loadouts.has(loadout.player_id):
+			return SimulationResult.rejected_result(&"invalid_loadout_player", "A player has more than one loadout")
+		seen_loadouts[loadout.player_id] = true
+		if loadout.ordered_card_ids.is_empty():
+			return SimulationResult.rejected_result(&"invalid_loadout", "Loadout deck cannot be empty")
+		for card_id: StringName in loadout.ordered_card_ids:
+			if card_database.get_card_definition(card_id) == null:
+				return SimulationResult.rejected_result(&"invalid_card_in_loadout", "Unknown card id %s" % card_id)
+	return SimulationResult.accepted_result("")
 
 
 func _record_accepted_command(command: ActionCommand) -> void:
